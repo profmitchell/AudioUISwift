@@ -1,0 +1,596 @@
+# Theming Guide
+
+Master AudioUI's powerful theming system to create stunning, branded audio interfaces.
+
+## Overview
+
+AudioUI's revolutionary theming system separates visual design from interaction behavior, giving you unprecedented control over your interface's look and feel. This architectural approach allows you to create interfaces that are uniquely yours while maintaining the precision and responsiveness that professional audio applications demand.
+
+Whether you're building a clean, minimal DAW interface or an immersive, tactile virtual instrument, AudioUI's theming system provides the tools to bring your vision to life.
+
+## Core Theming Concepts
+
+### 🎨 Looks: Visual Identity
+A "Look" defines every visual aspect of your interface:
+- **Color palettes** including primary, secondary, accent, and semantic colors
+- **Visual effects** like shadows, gradients, glows, and transparency
+- **Typography** with consistent font weights, sizes, and spacing
+- **Geometry** including corner radius, border styles, and proportions
+
+### ⚡ Feels: Interaction Personality  
+A "Feel" controls how your interface responds to user interaction:
+- **Animation curves** and timing for smooth, responsive feedback
+- **Touch sensitivity** and gesture recognition thresholds
+- **Visual transitions** between states (idle, pressed, dragging)
+- **Haptic feedback** intensity and patterns
+
+### 🎭 Themes: Complete Experiences
+A "Theme" marries a Look with a Feel to create cohesive user experiences:
+- **Consistency** across all components with unified design language
+- **Flexibility** to mix different Looks and Feels as needed
+- **Customization** through inheritance and property overrides
+- **Performance** with optimized rendering and minimal state changes
+
+## Quick Start: Built-in Themes
+
+Transform your interface instantly with AudioUI's professionally crafted themes:
+
+```swift
+import SwiftUI
+import AudioUI
+import AudioUITheme
+
+struct MyAudioInterface: View {
+    @State private var volume: Double = 0.7
+    @State private var cutoff: Double = 0.5
+    @State private var position = CGPoint(x: 0.5, y: 0.5)
+    
+    var body: some View {
+        VStack(spacing: 40) {
+            Text("Professional Audio Interface")
+                .audioUITitle()
+            
+            HStack(spacing: 50) {
+                // Volume control
+                VStack(spacing: 15) {
+                    Text("VOLUME")
+                        .audioUILabel(.parameter)
+                    
+                    InsetNeumorphicKnob(value: $volume)
+                        .frame(width: 120, height: 120)
+                    
+                    Text("\(Int(volume * 100))%")
+                        .audioUILabel(.value)
+                }
+                
+                // Filter cutoff
+                VStack(spacing: 15) {
+                    Text("CUTOFF")
+                        .audioUILabel(.parameter)
+                    
+                    VerticalInsetSlider(value: $cutoff)
+                        .frame(width: 40, height: 200)
+                    
+                    Text("\(Int(cutoff * 20000))Hz")
+                        .audioUILabel(.value)
+                }
+            }
+            
+            // XY Control
+            XYPadMinimal1(position: $position)
+                .frame(width: 300, height: 300)
+        }
+        .theme(.audioUINeumorphic) // Professional neumorphic theme
+        .padding(40)
+    }
+}
+    }
+}
+```
+
+### Available Built-in Themes
+
+```swift
+// Professional themes
+.theme(.audioUI)     // Clean, geometric design
+.theme(.darkPro)           // Professional studio standard
+.theme(.ultraClean)        // Maximum clarity and accessibility
+
+// Creative themes  
+.theme(.audioUINeumorphic) // Soft, tactile surfaces
+.theme(.sunset)            // Warm, inspiring gradients
+.theme(.ocean)             // Cool, calming blues
+```
+
+## Theme Switching and Comparison
+
+One of the best ways to understand theming is to see the same interface with different themes:
+
+```swift
+struct ThemeComparisonView: View {
+    @State private var selectedTheme = 0
+    @State private var value: Double = 0.5
+    
+    let themes: [(String, Theme)] = [
+        ("Minimal", .audioUIMinimal),
+        ("Neumorphic", .audioUINeumorphic), 
+        ("Dark Pro", .darkPro),
+        ("Sunset", .sunset),
+        ("Ocean", .ocean),
+        ("Ultra Clean", .ultraClean)
+    ]
+    
+    var body: some View {
+        VStack(spacing: 30) {
+            Text("Theme Comparison")
+                .font(.title)
+            
+            // Theme selector
+            Picker("Theme", selection: $selectedTheme) {
+                ForEach(0..<themes.count, id: \.self) { index in
+                    Text(themes[index].0)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            
+            // Same control, different theme
+            VStack(spacing: 20) {
+                InsetNeumorphicKnob(value: $value)
+                    .frame(width: 100, height: 100)
+                
+                VerticalInsetSlider(value: $value)
+                    .frame(width: 60, height: 150)
+            }
+            .theme(themes[selectedTheme].1)
+            
+            Text("Notice how the same functionality feels completely different!")
+                .font(.caption)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+    }
+}
+```
+
+## Creating Custom Looks
+
+When built-in themes don't match your brand, create a custom Look:
+
+```swift
+import SwiftUI
+import AudioUITheme
+
+struct BrandLook: Look {
+    // Your brand colors
+    let brandPrimary = Color(hex: "#6C5CE7")    // Purple
+    let brandSecondary = Color(hex: "#A29BFE")  // Light purple
+    
+    // Surface colors for your interface
+    var surface: Color { Color(hex: "#2D3436") }
+    var surfacePressed: Color { Color(hex: "#636E72") }
+    var surfaceElevated: Color { Color(hex: "#636E72") }
+    
+    // Interactive state colors
+    var interactiveIdle: Color { brandPrimary.opacity(0.7) }
+    var interactiveHover: Color { brandPrimary.opacity(0.9) }
+    var interactivePressed: Color { brandPrimary }
+    var interactiveDisabled: Color { Color.gray.opacity(0.3) }
+    
+    // Text colors for readability
+    var textPrimary: Color { Color.white }
+    var textSecondary: Color { Color.white.opacity(0.8) }
+    var textTertiary: Color { Color.white.opacity(0.6) }
+    
+    // Accent colors for highlights
+    var accent: Color { brandSecondary }
+    var accentSecondary: Color { Color(hex: "#00B894") } // Green accent
+    
+    // Effect colors for depth and atmosphere
+    var shadowDark: Color { Color.black.opacity(0.6) }
+    var shadowLight: Color { Color.white.opacity(0.1) }
+    var glassBorder: Color { Color.white.opacity(0.2) }
+    var glowPrimary: Color { brandPrimary }
+}
+```
+
+## Creating Custom Feels
+
+Define how your interface responds to user interaction:
+
+```swift
+struct BrandFeel: Feel {
+    // Shape properties
+    let cornerRadius: CGFloat = 16     // Rounded corners
+    let borderWidth: CGFloat = 1       // Subtle borders
+    
+    // Shadow properties for depth
+    let shadowRadius: CGFloat = 12
+    let shadowOpacity: Double = 0.4
+    
+    // Effect properties for premium feel
+    let glowIntensity: Double = 0.8
+    let blurRadius: CGFloat = 8
+    
+    // Animation properties for responsiveness
+    let animationDuration: Double = 0.3
+    let animationCurve = Animation.spring(
+        response: 0.4, 
+        dampingFraction: 0.8
+    )
+    
+    // Custom container styling
+    func applyToContainer<Content: View>(_ content: Content, look: Look) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                look.surface,
+                                look.surfacePressed
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(
+                        color: look.shadowDark.opacity(shadowOpacity),
+                        radius: shadowRadius,
+                        x: 0, y: 4
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(look.glassBorder, lineWidth: borderWidth)
+            )
+    }
+    
+    // Custom button interaction feedback
+    func applyToButton<Content: View>(_ content: Content, look: Look, isPressed: Bool) -> some View {
+        content
+            .scaleEffect(isPressed ? 0.95 : 1.0)
+            .brightness(isPressed ? -0.1 : 0)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius * 0.5)
+                    .fill(
+                        isPressed ?
+                        look.glowPrimary.opacity(glowIntensity * 0.3) :
+                        Color.clear
+                    )
+                    .blur(radius: blurRadius)
+            )
+            .animation(animationCurve, value: isPressed)
+    }
+}
+```
+
+## Combining Look and Feel
+
+Create your complete custom theme:
+
+```swift
+let brandTheme = Theme(
+    look: BrandLook(),
+    feel: BrandFeel()
+)
+
+struct BrandedInterface: View {
+    @State private var volume: Double = 0.5
+    @State private var frequency: Double = 0.5
+    
+    var body: some View {
+        VStack(spacing: 30) {
+            Text("My Audio App")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+            
+            HStack(spacing: 40) {
+                VStack {
+                    Text("Volume")
+                        .font(.headline)
+                    InsetNeumorphicKnob(value: $volume)
+                        .frame(width: 80, height: 80)
+                }
+                
+                VStack {
+                    Text("Frequency")
+                        .font(.headline)
+                    KnobMinimal1(value: $frequency)
+                        .frame(width: 80, height: 80)
+                }
+            }
+        }
+        .padding()
+        .theme(brandTheme) // Apply your custom theme
+    }
+}
+```
+
+## Dynamic Theme Switching
+
+Allow users to choose their preferred theme:
+
+```swift
+struct ThemeSettings: View {
+    @AppStorage("selectedTheme") private var selectedTheme = "darkPro"
+    
+    let availableThemes: [String: Theme] = [
+        "Minimal": .audioUIMinimal,
+        "Neumorphic": .audioUINeumorphic,
+        "Dark Pro": .darkPro,
+        "Sunset": .sunset,
+        "Ocean": .ocean,
+        "Ultra Clean": .ultraClean
+    ]
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Choose Your Theme")
+                .font(.title)
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 20) {
+                ForEach(Array(availableThemes.keys), id: \.self) { themeName in
+                    ThemePreviewCard(
+                        name: themeName,
+                        theme: availableThemes[themeName]!,
+                        isSelected: selectedTheme == themeName
+                    ) {
+                        selectedTheme = themeName
+                    }
+                }
+            }
+        }
+        .padding()
+    }
+}
+
+struct ThemePreviewCard: View {
+    let name: String
+    let theme: Theme
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Text(name)
+                .font(.caption)
+                .fontWeight(.medium)
+            
+            // Mini preview of the theme
+            HStack(spacing: 8) {
+                KnobMinimal1(value: .constant(0.6))
+                    .frame(width: 30, height: 30)
+                VerticalInsetSlider(value: .constant(0.7))
+                    .frame(width: 15, height: 40)
+            }
+            .theme(theme)
+            .scaleEffect(0.8)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.gray.opacity(0.1))
+                .stroke(
+                    isSelected ? Color.blue : Color.clear,
+                    lineWidth: 2
+                )
+        )
+        .onTapGesture {
+            onSelect()
+        }
+    }
+}
+```
+
+## Context-Aware Theming
+
+Adapt themes based on user context:
+
+```swift
+struct ContextualThemeView: View {
+    @Environment(\.colorScheme) var colorScheme
+    @State private var isCreativeMode = false
+    @State private var isLowLight = false
+    
+    var contextualTheme: Theme {
+        switch (isCreativeMode, isLowLight, colorScheme) {
+        case (true, _, _):
+            return .audioUINeumorphic  // Creative mode
+        case (false, true, _):
+            return .darkPro           // Low light professional
+        case (false, false, .dark):
+            return .audioUIMinimal    // Dark mode minimal
+        case (false, false, .light):
+            return .ultraClean        // Light mode clean
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Context-Aware Interface")
+                .font(.title)
+            
+            // Context controls
+            VStack(spacing: 10) {
+                Toggle("Creative Mode", isOn: $isCreativeMode)
+                Toggle("Low Light Environment", isOn: $isLowLight)
+            }
+            .padding()
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(12)
+            
+            // Interface that adapts to context
+            YourAudioInterface()
+                .theme(contextualTheme)
+                .animation(.easeInOut(duration: 0.3), value: contextualTheme)
+        }
+        .padding()
+    }
+}
+```
+
+## Accessibility in Theming
+
+Ensure your themes are accessible to all users:
+
+```swift
+struct AccessibleLook: Look {
+    // High contrast colors for visibility
+    var textPrimary: Color { Color.white }
+    var surface: Color { Color.black }           // High contrast ratio
+    
+    // Clear state differentiation
+    var interactiveIdle: Color { Color(hex: "#0080FF") }    // Blue
+    var interactiveHover: Color { Color(hex: "#40A0FF") }   // Lighter blue
+    var interactivePressed: Color { Color(hex: "#0060C0") } // Darker blue
+    
+    // Colorblind-friendly accents
+    var accent: Color { Color(hex: "#00FF00") }         // Green
+    var accentSecondary: Color { Color(hex: "#FF8000") } // Orange
+    
+    // Ensure sufficient contrast for readability
+    var textSecondary: Color { Color.white.opacity(0.9) }
+    var textTertiary: Color { Color.white.opacity(0.8) }
+}
+
+struct AccessibleFeel: Feel {
+    // Longer animations for motor accessibility
+    let animationDuration: Double = 0.5
+    let animationCurve = Animation.easeInOut(duration: 0.5)
+    
+    // Larger touch targets
+    let cornerRadius: CGFloat = 8
+    let borderWidth: CGFloat = 2  // More visible borders
+    
+    // Reduced motion for vestibular sensitivity
+    let shadowRadius: CGFloat = 0
+    let shadowOpacity: Double = 0
+    let glowIntensity: Double = 0
+    let blurRadius: CGFloat = 0
+}
+```
+
+## Performance Optimization
+
+Design themes for optimal performance in real-time audio applications:
+
+```swift
+struct PerformantLook: Look {
+    // Use solid colors instead of gradients when possible
+    var surface: Color { Color(hex: "#2A2A2A") }
+    var surfacePressed: Color { Color(hex: "#1A1A1A") }
+    
+    // Limit complex color calculations
+    var interactiveIdle: Color { Color.blue }
+    var interactiveHover: Color { Color.blue.opacity(0.8) }
+    var interactivePressed: Color { Color.blue.opacity(0.6) }
+}
+
+struct PerformantFeel: Feel {
+    // Shorter animations for real-time responsiveness
+    let animationDuration: Double = 0.1
+    let animationCurve = Animation.linear(duration: 0.1)
+    
+    // Minimize expensive effects
+    let shadowRadius: CGFloat = 0
+    let glowIntensity: Double = 0
+    let blurRadius: CGFloat = 0
+    
+    // Simple container styling
+    func applyToContainer<Content: View>(_ content: Content, look: Look) -> some View {
+        content
+            .background(
+                Rectangle()
+                    .fill(look.surface)
+            )
+    }
+}
+```
+
+## Testing Your Themes
+
+Validate your themes across different scenarios:
+
+```swift
+struct ThemeTestingSuite: View {
+    let testTheme: Theme
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 30) {
+                // Test all component types
+                ComponentTestGroup(title: "Knobs") {
+                    HStack {
+                        KnobMinimal1(value: .constant(0.3))
+                        InsetNeumorphicKnob(value: .constant(0.7))
+                    }
+                }
+                
+                ComponentTestGroup(title: "Sliders") {
+                    HStack {
+                        VerticalInsetSlider(value: .constant(0.5))
+                            .frame(height: 100)
+                        SliderMinimal1(value: .constant(0.8))
+                    }
+                }
+                
+                ComponentTestGroup(title: "Buttons") {
+                    HStack {
+                        InsetToggleButton(label: "MUTE", isOn: .constant(false))
+                        NeumorphicButton1(isActive: .constant(true), label: "PLAY")
+                    }
+                }
+                
+                // Test different states
+                ComponentTestGroup(title: "States") {
+                    VStack {
+                        Text("Normal State")
+                        Text("Pressed State")
+                        Text("Disabled State")
+                    }
+                }
+            }
+            .padding()
+        }
+        .theme(testTheme)
+    }
+}
+
+struct ComponentTestGroup<Content: View>: ViewBuilder {
+    let title: String
+    @ViewBuilder let content: Content
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Text(title)
+                .font(.headline)
+            content
+        }
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(12)
+    }
+}
+```
+
+## Best Practices
+
+### Do's:
+- **Test accessibility**: Ensure sufficient color contrast and clear state differentiation
+- **Consider context**: Professional vs creative applications need different approaches
+- **Test performance**: Monitor frame rates, especially with complex visual effects
+- **Provide options**: Let users choose themes that work for their needs
+- **Stay consistent**: Use your theme system throughout your entire application
+
+### Don'ts:
+- **Don't over-animate**: Excessive motion can distract from audio work
+- **Don't sacrifice readability**: Beautiful themes mean nothing if users can't read text
+- **Don't ignore platform conventions**: Respect iOS/macOS design expectations
+- **Don't make everything neon**: High contrast doesn't mean everything needs to glow
+- **Don't forget dark environments**: Audio work often happens in dim studios
+
+## Conclusion
+
+AudioUI's theming system gives you the power to create audio interfaces that look exactly how you envision while maintaining the performance and precision that audio applications demand. Whether you use the built-in themes or create completely custom ones, you'll have the tools to build professional, beautiful, and accessible audio interfaces.
+
+Start with the built-in themes to understand the system, then gradually customize or create your own themes as your needs become more specific. Remember that the best audio interface is one that disappears into the background, letting users focus on their creative work while providing all the control and feedback they need.

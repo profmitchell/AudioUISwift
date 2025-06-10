@@ -1,0 +1,1124 @@
+# Motion Control Tutorial
+
+Build motion-responsive audio interfaces using device sensors and gesture controls.
+
+## Overview
+
+This tutorial demonstrates how to create audio interfaces that respond to device motion, gestures, and spatial input. You'll learn to integrate Core Motion, gesture recognition, and 3D spatial controls to create immersive audio experiences.
+
+## What You'll Build
+
+By the end of this tutorial, you'll have created:
+- Motion-controlled synthesizer with gyroscope input
+- Gesture-based effects processor with multi-touch support
+- 3D spatial audio controller using device orientation
+- Haptic feedback system synchronized with audio
+- Calibration and sensitivity controls
+- Motion recording and playback system
+
+## Prerequisites
+
+- Understanding of SwiftUI and AudioUI
+- Basic knowledge of Core Motion framework
+- Familiarity with gesture recognition
+- Device with accelerometer and gyroscope (not simulator)
+
+## Step 1: Project Setup and Permissions
+
+Configure the project for motion input:
+
+```swift
+import SwiftUI
+import AudioUI
+import AudioUICore
+import AudioUITheme
+import CoreMotion
+import CoreHaptics
+
+struct MotionControlApp: App {
+    var body: some Scene {
+        WindowGroup {
+            MotionControlView()
+                .audioUITheme(.futuristic)
+        }
+    }
+}
+
+// Add to Info.plist:
+// <key>NSMotionUsageDescription</key>
+// <string>This app uses motion data to control audio parameters</string>
+```
+
+## Step 2: Motion Manager Foundation
+
+Create the core motion management system:
+
+```swift
+class MotionManager: ObservableObject {
+    private let motionManager = CMMotionManager()
+    private let updateInterval: TimeInterval = 1.0/60.0 // 60 FPS
+    
+    @Published var attitude = Attitude()
+    @Published var acceleration = Acceleration()
+    @Published var rotation = Rotation()
+    @Published var isActive = false
+    @Published var isCalibrated = false
+    
+    private var calibrationOffset = Attitude()
+    
+    init() {
+        setupMotionManager()
+    }
+    
+    private func setupMotionManager() {
+        motionManager.deviceMotionUpdateInterval = updateInterval
+        motionManager.accelerometerUpdateInterval = updateInterval
+        motionManager.gyroUpdateInterval = updateInterval
+    }
+    
+    func startMotionUpdates() {
+        guard motionManager.isDeviceMotionAvailable else {
+            print("Device motion not available")
+            return
+        }
+        
+        motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
+            guard let motion = motion, error == nil else { return }
+            
+            self?.updateMotionData(motion)
+        }
+        
+        isActive = true
+    }
+    
+    func stopMotionUpdates() {
+        motionManager.stopDeviceMotionUpdates()
+        isActive = false
+    }
+    
+    private func updateMotionData(_ motion: CMDeviceMotion) {
+        let rawAttitude = Attitude(
+            pitch: motion.attitude.pitch,
+            roll: motion.attitude.roll,
+            yaw: motion.attitude.yaw
+        )
+        
+        // Apply calibration offset
+        attitude = Attitude(
+            pitch: rawAttitude.pitch - calibrationOffset.pitch,
+            roll: rawAttitude.roll - calibrationOffset.roll,
+            yaw: rawAttitude.yaw - calibrationOffset.yaw
+        )
+        
+        acceleration = Acceleration(
+            x: motion.userAcceleration.x,
+            y: motion.userAcceleration.y,
+            z: motion.userAcceleration.z
+        )
+        
+        rotation = Rotation(
+            x: motion.rotationRate.x,
+            y: motion.rotationRate.y,
+            z: motion.rotationRate.z
+        )
+    }
+    
+    func calibrate() {
+        calibrationOffset = attitude
+        isCalibrated = true
+    }
+    
+    func resetCalibration() {
+        calibrationOffset = Attitude()
+        isCalibrated = false
+    }
+}
+
+struct Attitude {
+    var pitch: Double = 0.0
+    var roll: Double = 0.0
+    var yaw: Double = 0.0
+}
+
+struct Acceleration {
+    var x: Double = 0.0
+    var y: Double = 0.0
+    var z: Double = 0.0
+    
+    var magnitude: Double {
+        sqrt(x*x + y*y + z*z)
+    }
+}
+
+struct Rotation {
+    var x: Double = 0.0
+    var y: Double = 0.0
+    var z: Double = 0.0
+}
+```
+
+## Step 3: Motion-Controlled Synthesizer
+
+Create a synthesizer controlled by device orientation:
+
+```swift
+struct MotionSynthesizer: View {
+    @StateObject private var motionManager = MotionManager()
+    @State private var isPlaying = false
+    @State private var sensitivity = MotionSensitivity()
+    
+    // Synthesizer parameters controlled by motion
+    @State private var frequency: Double = 440.0
+    @State private var filterCutoff: Double = 0.5
+    @State private var resonance: Double = 0.2
+    @State private var volume: Double = 0.0
+    
+    var body: some View {
+        VStack(spacing: 25) {
+            Text("MOTION SYNTHESIZER")
+                .audioUILabel(.section)
+            
+            // Motion Status and Calibration
+            MotionStatusPanel(
+                motionManager: motionManager,
+                sensitivity: $sensitivity
+            )
+            
+            // Real-time Motion Visualization
+            MotionVisualization(
+                attitude: motionManager.attitude,
+                acceleration: motionManager.acceleration
+            )
+            .frame(height: 200)
+            
+            // Synthesizer Controls
+            HStack(spacing: 30) {
+                // Frequency Control (Pitch = Y-axis tilt)
+                VStack {
+                    Text("FREQUENCY")
+                        .audioUILabel(.parameter)
+                    
+                    Text("Pitch Control")
+                        .audioUILabel(.small)
+                    
+                    FrequencyDisplay(frequency: frequency)
+                        .frame(width: 120, height: 80)
+                    
+                    Text("\(Int(frequency)) Hz")
+                        .audioUILabel(.value)
+                }
+                
+                // Filter Control (Roll = X-axis tilt)
+                VStack {
+                    Text("FILTER")
+                        .audioUILabel(.parameter)
+                    
+                    Text("Roll Control")
+                        .audioUILabel(.small)
+                    
+                    FilterXYPad(
+                        x: .constant(filterCutoff),
+                        y: .constant(resonance)
+                    )
+                    .frame(width: 120, height: 120)
+                    .disabled(true) // Display only
+                    
+                    Text("Cutoff: \(Int(filterCutoff * 100))%")
+                        .audioUILabel(.value)
+                }
+                
+                // Volume Control (Acceleration magnitude)
+                VStack {
+                    Text("VOLUME")
+                        .audioUILabel(.parameter)
+                    
+                    Text("Motion Intensity")
+                        .audioUILabel(.small)
+                    
+                    LevelMeter(level: volume)
+                        .frame(width: 30, height: 120)
+                    
+                    Text("\(Int(volume * 100))%")
+                        .audioUILabel(.value)
+                }
+            }
+            
+            // Playback Controls
+            HStack(spacing: 20) {
+                CircularButton(
+                    icon: isPlaying ? "pause.fill" : "play.fill",
+                    isPressed: .constant(isPlaying)
+                ) {
+                    togglePlayback()
+                }
+                .frame(width: 60, height: 60)
+                
+                CircularButton(
+                    icon: "stop.fill",
+                    isPressed: .constant(false)
+                ) {
+                    stopPlayback()
+                }
+                .frame(width: 50, height: 50)
+            }
+            
+            // Sensitivity Controls
+            MotionSensitivityControls(sensitivity: $sensitivity)
+        }
+        .audioUIGroupBox()
+        .onReceive(motionManager.$attitude) { attitude in
+            updateSynthParameters(attitude)
+        }
+        .onReceive(motionManager.$acceleration) { acceleration in
+            updateVolumeFromMotion(acceleration)
+        }
+        .onAppear {
+            motionManager.startMotionUpdates()
+        }
+        .onDisappear {
+            motionManager.stopMotionUpdates()
+        }
+    }
+    
+    private func updateSynthParameters(_ attitude: Attitude) {
+        // Map pitch (forward/backward tilt) to frequency
+        let pitchRange = sensitivity.pitchRange
+        let normalizedPitch = (attitude.pitch + pitchRange) / (2 * pitchRange)
+        frequency = 220 + (normalizedPitch.clamped(to: 0...1) * 660) // 220Hz to 880Hz
+        
+        // Map roll (left/right tilt) to filter cutoff
+        let rollRange = sensitivity.rollRange
+        let normalizedRoll = (attitude.roll + rollRange) / (2 * rollRange)
+        filterCutoff = normalizedRoll.clamped(to: 0...1)
+        
+        // Map yaw (rotation) to resonance
+        let yawRange = sensitivity.yawRange
+        let normalizedYaw = (attitude.yaw + yawRange) / (2 * yawRange)
+        resonance = normalizedYaw.clamped(to: 0...1)
+    }
+    
+    private func updateVolumeFromMotion(_ acceleration: Acceleration) {
+        // Use acceleration magnitude for volume control
+        let scaledMagnitude = acceleration.magnitude * sensitivity.accelerationSensitivity
+        volume = scaledMagnitude.clamped(to: 0...1)
+    }
+    
+    private func togglePlayback() {
+        isPlaying.toggle()
+        // Start/stop audio synthesis
+    }
+    
+    private func stopPlayback() {
+        isPlaying = false
+        volume = 0.0
+        // Stop audio synthesis
+    }
+}
+
+struct MotionSensitivity {
+    var pitchRange: Double = 0.5    // ±0.5 radians (~±30°)
+    var rollRange: Double = 0.5
+    var yawRange: Double = 0.5
+    var accelerationSensitivity: Double = 2.0
+}
+
+extension Double {
+    func clamped(to range: ClosedRange<Double>) -> Double {
+        return Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
+    }
+}
+```
+
+## Step 4: Motion Status and Calibration
+
+Build status monitoring and calibration controls:
+
+```swift
+struct MotionStatusPanel: View {
+    @ObservedObject var motionManager: MotionManager
+    @Binding var sensitivity: MotionSensitivity
+    @State private var showSensitivityControls = false
+    
+    var body: some View {
+        VStack(spacing: 15) {
+            Text("MOTION STATUS")
+                .audioUILabel(.parameter)
+            
+            HStack(spacing: 30) {
+                // Motion Status Indicators
+                VStack(spacing: 8) {
+                    HStack {
+                        Circle()
+                            .fill(motionManager.isActive ? .green : .red)
+                            .frame(width: 12, height: 12)
+                        
+                        Text("Motion Active")
+                            .audioUILabel(.small)
+                    }
+                    
+                    HStack {
+                        Circle()
+                            .fill(motionManager.isCalibrated ? .blue : .gray)
+                            .frame(width: 12, height: 12)
+                        
+                        Text("Calibrated")
+                            .audioUILabel(.small)
+                    }
+                }
+                
+                // Calibration Controls
+                VStack(spacing: 8) {
+                    RectangularButton(
+                        title: "CALIBRATE",
+                        isPressed: .constant(false)
+                    ) {
+                        motionManager.calibrate()
+                    }
+                    .frame(width: 80, height: 30)
+                    
+                    RectangularButton(
+                        title: "RESET",
+                        isPressed: .constant(false)
+                    ) {
+                        motionManager.resetCalibration()
+                    }
+                    .frame(width: 80, height: 30)
+                }
+                
+                // Sensitivity Button
+                RectangularButton(
+                    title: "SENSITIVITY",
+                    isPressed: .constant(showSensitivityControls)
+                ) {
+                    showSensitivityControls.toggle()
+                }
+                .frame(width: 100, height: 30)
+            }
+            
+            // Raw Motion Data Display
+            HStack(spacing: 20) {
+                VStack {
+                    Text("PITCH")
+                        .audioUILabel(.small)
+                    Text("\(motionManager.attitude.pitch, specifier: "%.2f")")
+                        .audioUILabel(.value)
+                        .monospacedDigit()
+                }
+                
+                VStack {
+                    Text("ROLL")
+                        .audioUILabel(.small)
+                    Text("\(motionManager.attitude.roll, specifier: "%.2f")")
+                        .audioUILabel(.value)
+                        .monospacedDigit()
+                }
+                
+                VStack {
+                    Text("YAW")
+                        .audioUILabel(.small)
+                    Text("\(motionManager.attitude.yaw, specifier: "%.2f")")
+                        .audioUILabel(.value)
+                        .monospacedDigit()
+                }
+                
+                VStack {
+                    Text("ACCEL")
+                        .audioUILabel(.small)
+                    Text("\(motionManager.acceleration.magnitude, specifier: "%.2f")")
+                        .audioUILabel(.value)
+                        .monospacedDigit()
+                }
+            }
+        }
+        .sheet(isPresented: $showSensitivityControls) {
+            MotionSensitivitySheet(sensitivity: $sensitivity)
+        }
+    }
+}
+
+struct MotionSensitivityControls: View {
+    @Binding var sensitivity: MotionSensitivity
+    
+    var body: some View {
+        VStack(spacing: 15) {
+            Text("MOTION SENSITIVITY")
+                .audioUILabel(.parameter)
+            
+            HStack(spacing: 20) {
+                VStack {
+                    Text("PITCH RANGE")
+                        .audioUILabel(.small)
+                    
+                    InsetNeumorphicKnob(value: Binding(
+                        get: { sensitivity.pitchRange / 1.0 }, // 0 to 1 radian range
+                        set: { sensitivity.pitchRange = $0 * 1.0 }
+                    ))
+                    .frame(width: 50, height: 50)
+                    
+                    Text("±\(Int(sensitivity.pitchRange * 180 / .pi))°")
+                        .audioUILabel(.value)
+                }
+                
+                VStack {
+                    Text("ROLL RANGE")
+                        .audioUILabel(.small)
+                    
+                    InsetNeumorphicKnob(value: Binding(
+                        get: { sensitivity.rollRange / 1.0 },
+                        set: { sensitivity.rollRange = $0 * 1.0 }
+                    ))
+                    .frame(width: 50, height: 50)
+                    
+                    Text("±\(Int(sensitivity.rollRange * 180 / .pi))°")
+                        .audioUILabel(.value)
+                }
+                
+                VStack {
+                    Text("ACCEL SENS")
+                        .audioUILabel(.small)
+                    
+                    InsetNeumorphicKnob(value: Binding(
+                        get: { sensitivity.accelerationSensitivity / 5.0 },
+                        set: { sensitivity.accelerationSensitivity = $0 * 5.0 }
+                    ))
+                    .frame(width: 50, height: 50)
+                    
+                    Text("\(sensitivity.accelerationSensitivity, specifier: "%.1f")x")
+                        .audioUILabel(.value)
+                }
+            }
+        }
+    }
+}
+```
+
+## Step 5: Motion Visualization
+
+Create real-time motion visualization:
+
+```swift
+struct MotionVisualization: View {
+    let attitude: Attitude
+    let acceleration: Acceleration
+    
+    var body: some View {
+        HStack(spacing: 20) {
+            // 3D Orientation Display
+            OrientationDisplay(attitude: attitude)
+                .frame(width: 150, height: 150)
+            
+            // Acceleration Vector Display
+            AccelerationDisplay(acceleration: acceleration)
+                .frame(width: 150, height: 150)
+        }
+        .audioUIDisplay()
+    }
+}
+
+struct OrientationDisplay: View {
+    let attitude: Attitude
+    
+    var body: some View {
+        GeometryReader { geometry in
+            let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
+            let radius = min(geometry.size.width, geometry.size.height) / 2 - 10
+            
+            ZStack {
+                // Background circle
+                Circle()
+                    .stroke(.gray.opacity(0.3), lineWidth: 2)
+                
+                // Pitch indicator (vertical)
+                Rectangle()
+                    .fill(.blue)
+                    .frame(width: 4, height: radius * 2)
+                    .offset(y: attitude.pitch * radius / 0.5) // Scale to display range
+                    .opacity(0.7)
+                
+                // Roll indicator (horizontal)
+                Rectangle()
+                    .fill(.green)
+                    .frame(width: radius * 2, height: 4)
+                    .offset(x: attitude.roll * radius / 0.5)
+                    .opacity(0.7)
+                
+                // Yaw indicator (rotation)
+                Path { path in
+                    path.move(to: center)
+                    path.addLine(to: CGPoint(
+                        x: center.x + cos(attitude.yaw) * radius * 0.8,
+                        y: center.y + sin(attitude.yaw) * radius * 0.8
+                    ))
+                }
+                .stroke(.red, lineWidth: 3)
+                
+                // Center dot
+                Circle()
+                    .fill(.white)
+                    .frame(width: 8, height: 8)
+                
+                // Labels
+                VStack {
+                    Text("ORIENTATION")
+                        .audioUILabel(.small)
+                        .offset(y: -radius - 20)
+                    
+                    Spacer()
+                    
+                    HStack {
+                        Text("P: \(Int(attitude.pitch * 180 / .pi))°")
+                        Text("R: \(Int(attitude.roll * 180 / .pi))°")
+                        Text("Y: \(Int(attitude.yaw * 180 / .pi))°")
+                    }
+                    .audioUILabel(.value)
+                    .offset(y: radius + 10)
+                }
+            }
+        }
+    }
+}
+
+struct AccelerationDisplay: View {
+    let acceleration: Acceleration
+    
+    var body: some View {
+        GeometryReader { geometry in
+            let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
+            let maxRadius = min(geometry.size.width, geometry.size.height) / 2 - 10
+            let scale: Double = 50 // Scale factor for acceleration visualization
+            
+            ZStack {
+                // Background circle
+                Circle()
+                    .stroke(.gray.opacity(0.3), lineWidth: 2)
+                
+                // Acceleration vector
+                Path { path in
+                    path.move(to: center)
+                    path.addLine(to: CGPoint(
+                        x: center.x + acceleration.x * scale,
+                        y: center.y - acceleration.y * scale // Invert Y for screen coordinates
+                    ))
+                }
+                .stroke(.orange, lineWidth: 4)
+                
+                // Z-axis indicator (circle size)
+                Circle()
+                    .fill(.purple.opacity(0.5))
+                    .frame(width: abs(acceleration.z) * scale + 5, height: abs(acceleration.z) * scale + 5)
+                
+                // Center dot
+                Circle()
+                    .fill(.white)
+                    .frame(width: 6, height: 6)
+                
+                // Labels
+                VStack {
+                    Text("ACCELERATION")
+                        .audioUILabel(.small)
+                        .offset(y: -maxRadius - 20)
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 2) {
+                        Text("Magnitude: \(acceleration.magnitude, specifier: "%.2f")")
+                        Text("X: \(acceleration.x, specifier: "%.2f") Y: \(acceleration.y, specifier: "%.2f") Z: \(acceleration.z, specifier: "%.2f")")
+                    }
+                    .audioUILabel(.value)
+                    .offset(y: maxRadius + 10)
+                }
+            }
+        }
+    }
+}
+```
+
+## Step 6: Gesture-Based Effects
+
+Create multi-touch gesture controls:
+
+```swift
+struct GestureEffectsProcessor: View {
+    @State private var reverbAmount: Double = 0.0
+    @State private var delayTime: Double = 0.5
+    @State private var filterFreq: Double = 0.5
+    @State private var distortionAmount: Double = 0.0
+    @State private var activeGestures: Set<GestureType> = []
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("GESTURE EFFECTS")
+                .audioUILabel(.section)
+            
+            // Multi-touch gesture area
+            GestureControlSurface(
+                reverbAmount: $reverbAmount,
+                delayTime: $delayTime,
+                filterFreq: $filterFreq,
+                distortionAmount: $distortionAmount,
+                activeGestures: $activeGestures
+            )
+            .frame(height: 300)
+            
+            // Effect Parameter Display
+            HStack(spacing: 30) {
+                EffectParameterDisplay(
+                    name: "REVERB",
+                    value: reverbAmount,
+                    unit: "%",
+                    isActive: activeGestures.contains(.singleTap)
+                )
+                
+                EffectParameterDisplay(
+                    name: "DELAY",
+                    value: delayTime,
+                    unit: "ms",
+                    isActive: activeGestures.contains(.doubleTap)
+                )
+                
+                EffectParameterDisplay(
+                    name: "FILTER",
+                    value: filterFreq,
+                    unit: "Hz",
+                    isActive: activeGestures.contains(.pinch)
+                )
+                
+                EffectParameterDisplay(
+                    name: "DISTORTION",
+                    value: distortionAmount,
+                    unit: "%",
+                    isActive: activeGestures.contains(.rotate)
+                )
+            }
+        }
+        .audioUIGroupBox()
+    }
+}
+
+enum GestureType {
+    case singleTap, doubleTap, pinch, rotate, longPress
+}
+
+struct GestureControlSurface: View {
+    @Binding var reverbAmount: Double
+    @Binding var delayTime: Double
+    @Binding var filterFreq: Double
+    @Binding var distortionAmount: Double
+    @Binding var activeGestures: Set<GestureType>
+    
+    @State private var dragLocation: CGPoint = .zero
+    @State private var magnification: Double = 1.0
+    @State private var rotation: Double = 0.0
+    
+    var body: some View {
+        Rectangle()
+            .fill(.clear)
+            .overlay(
+                // Gesture visualization
+                GestureVisualization(
+                    dragLocation: dragLocation,
+                    magnification: magnification,
+                    rotation: rotation,
+                    activeGestures: activeGestures
+                )
+            )
+            .audioUIDisplay()
+            .clipped()
+            .gesture(
+                // Simultaneous gestures
+                ExclusiveGesture(
+                    // Drag gesture for reverb control
+                    DragGesture()
+                        .onChanged { value in
+                            dragLocation = value.location
+                            reverbAmount = min(1.0, value.location.y / 300)
+                            activeGestures.insert(.singleTap)
+                        }
+                        .onEnded { _ in
+                            activeGestures.remove(.singleTap)
+                        },
+                    
+                    // Magnification gesture for filter control
+                    MagnificationGesture()
+                        .onChanged { value in
+                            magnification = value
+                            filterFreq = min(1.0, max(0.0, (value - 0.5) / 1.5))
+                            activeGestures.insert(.pinch)
+                        }
+                        .onEnded { _ in
+                            activeGestures.remove(.pinch)
+                            magnification = 1.0
+                        }
+                ).simultaneously(with:
+                    // Rotation gesture for distortion
+                    RotationGesture()
+                        .onChanged { value in
+                            rotation = value.radians
+                            distortionAmount = min(1.0, abs(value.radians) / .pi)
+                            activeGestures.insert(.rotate)
+                        }
+                        .onEnded { _ in
+                            activeGestures.remove(.rotate)
+                            rotation = 0.0
+                        }
+                )
+            )
+            .onTapGesture(count: 2) {
+                // Double tap for delay control
+                activeGestures.insert(.doubleTap)
+                delayTime = Double.random(in: 0...1)
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    activeGestures.remove(.doubleTap)
+                }
+            }
+    }
+}
+
+struct GestureVisualization: View {
+    let dragLocation: CGPoint
+    let magnification: Double
+    let rotation: Double
+    let activeGestures: Set<GestureType>
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Grid background
+                Path { path in
+                    let step: CGFloat = 50
+                    for x in stride(from: 0, through: geometry.size.width, by: step) {
+                        path.move(to: CGPoint(x: x, y: 0))
+                        path.addLine(to: CGPoint(x: x, y: geometry.size.height))
+                    }
+                    for y in stride(from: 0, through: geometry.size.height, by: step) {
+                        path.move(to: CGPoint(x: 0, y: y))
+                        path.addLine(to: CGPoint(x: geometry.size.width, y: y))
+                    }
+                }
+                .stroke(.gray.opacity(0.2), lineWidth: 1)
+                
+                // Touch point visualization
+                if activeGestures.contains(.singleTap) {
+                    Circle()
+                        .fill(.blue.opacity(0.6))
+                        .frame(width: 40, height: 40)
+                        .position(dragLocation)
+                        .scaleEffect(1.0 + (1.0 - dragLocation.y / geometry.size.height))
+                }
+                
+                // Pinch visualization
+                if activeGestures.contains(.pinch) {
+                    Circle()
+                        .stroke(.green, lineWidth: 4)
+                        .frame(width: 100 * magnification, height: 100 * magnification)
+                        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                }
+                
+                // Rotation visualization
+                if activeGestures.contains(.rotate) {
+                    Rectangle()
+                        .fill(.red.opacity(0.6))
+                        .frame(width: 60, height: 8)
+                        .rotationEffect(.radians(rotation))
+                        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                }
+            }
+        }
+    }
+}
+
+struct EffectParameterDisplay: View {
+    let name: String
+    let value: Double
+    let unit: String
+    let isActive: Bool
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Text(name)
+                .audioUILabel(.parameter)
+                .foregroundColor(isActive ? .accent : .primary)
+            
+            Circle()
+                .stroke(isActive ? .accent : .gray, lineWidth: 3)
+                .fill(isActive ? .accent.opacity(0.2) : .clear)
+                .frame(width: 60, height: 60)
+                .overlay(
+                    VStack(spacing: 2) {
+                        Text("\(Int(value * 100))")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                        Text(unit)
+                            .font(.caption2)
+                    }
+                    .foregroundColor(isActive ? .accent : .primary)
+                )
+                .scaleEffect(isActive ? 1.1 : 1.0)
+                .animation(.easeInOut(duration: 0.2), value: isActive)
+        }
+    }
+}
+```
+
+## Step 7: Haptic Feedback Integration
+
+Add haptic feedback synchronized with motion:
+
+```swift
+class HapticManager: ObservableObject {
+    private var hapticEngine: CHHapticEngine?
+    @Published var isEnabled: Bool = true
+    
+    init() {
+        prepareHaptics()
+    }
+    
+    private func prepareHaptics() {
+        guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
+        
+        do {
+            hapticEngine = try CHHapticEngine()
+            try hapticEngine?.start()
+        } catch {
+            print("Haptic engine failed to start: \(error)")
+        }
+    }
+    
+    func playMotionFeedback(intensity: Double, sharpness: Double = 0.5) {
+        guard isEnabled, let hapticEngine = hapticEngine else { return }
+        
+        let hapticIntensity = CHHapticEventParameter(parameterID: .hapticIntensity, value: Float(intensity))
+        let hapticSharpness = CHHapticEventParameter(parameterID: .hapticSharpness, value: Float(sharpness))
+        
+        let event = CHHapticEvent(
+            eventType: .hapticTransient,
+            parameters: [hapticIntensity, hapticSharpness],
+            relativeTime: 0
+        )
+        
+        do {
+            let pattern = try CHHapticPattern(events: [event], parameters: [])
+            let player = try hapticEngine.makePlayer(with: pattern)
+            try player.start(atTime: 0)
+        } catch {
+            print("Haptic playback failed: \(error)")
+        }
+    }
+    
+    func playGestureFeedback(for gestureType: GestureType) {
+        switch gestureType {
+        case .singleTap:
+            playMotionFeedback(intensity: 0.7, sharpness: 0.8)
+        case .doubleTap:
+            playMotionFeedback(intensity: 0.9, sharpness: 1.0)
+        case .pinch:
+            playMotionFeedback(intensity: 0.5, sharpness: 0.3)
+        case .rotate:
+            playMotionFeedback(intensity: 0.6, sharpness: 0.7)
+        case .longPress:
+            playMotionFeedback(intensity: 1.0, sharpness: 0.2)
+        }
+    }
+}
+
+struct HapticControls: View {
+    @StateObject private var hapticManager = HapticManager()
+    @Binding var motionIntensity: Double
+    
+    var body: some View {
+        VStack(spacing: 15) {
+            Text("HAPTIC FEEDBACK")
+                .audioUILabel(.parameter)
+            
+            HStack(spacing: 20) {
+                ToggleButton(
+                    title: "ENABLE",
+                    isOn: $hapticManager.isEnabled
+                )
+                .frame(width: 80, height: 30)
+                
+                VStack {
+                    Text("INTENSITY")
+                        .audioUILabel(.small)
+                    
+                    InsetNeumorphicKnob(value: $motionIntensity)
+                        .frame(width: 50, height: 50)
+                        .onChange(of: motionIntensity) { intensity in
+                            if intensity > 0.8 { // Threshold for haptic feedback
+                                hapticManager.playMotionFeedback(intensity: intensity)
+                            }
+                        }
+                }
+                
+                RectangularButton(
+                    title: "TEST",
+                    isPressed: .constant(false)
+                ) {
+                    hapticManager.playMotionFeedback(intensity: 0.8, sharpness: 0.7)
+                }
+                .frame(width: 60, height: 30)
+            }
+        }
+        .audioUIGroupBox()
+    }
+}
+```
+
+## Step 8: Complete Motion Control View
+
+Assemble all components into the main interface:
+
+```swift
+struct MotionControlView: View {
+    @State private var selectedTab: MotionTab = .synthesizer
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            Text("AudioUI Motion Control Studio")
+                .font(.title)
+                .fontWeight(.bold)
+                .audioUIAccent()
+                .padding()
+            
+            // Tab Selection
+            HStack(spacing: 0) {
+                ForEach(MotionTab.allCases, id: \.self) { tab in
+                    RectangularButton(
+                        title: tab.title,
+                        isPressed: .constant(selectedTab == tab)
+                    ) {
+                        selectedTab = tab
+                    }
+                    .frame(height: 40)
+                }
+            }
+            .audioUIGroupBox()
+            
+            // Content
+            ScrollView {
+                Group {
+                    switch selectedTab {
+                    case .synthesizer:
+                        MotionSynthesizer()
+                    case .effects:
+                        GestureEffectsProcessor()
+                    case .spatial:
+                        SpatialAudioController()
+                    case .recording:
+                        MotionRecordingStudio()
+                    }
+                }
+                .padding()
+            }
+        }
+        .audioUIBackground()
+    }
+}
+
+enum MotionTab: CaseIterable {
+    case synthesizer, effects, spatial, recording
+    
+    var title: String {
+        switch self {
+        case .synthesizer: return "SYNTH"
+        case .effects: return "EFFECTS"
+        case .spatial: return "SPATIAL"
+        case .recording: return "RECORD"
+        }
+    }
+}
+
+struct SpatialAudioController: View {
+    @StateObject private var motionManager = MotionManager()
+    @State private var spatialPosition = SpatialPosition()
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("3D SPATIAL AUDIO")
+                .audioUILabel(.section)
+            
+            // 3D Position visualization
+            Spatial3DVisualization(position: spatialPosition)
+                .frame(height: 300)
+            
+            // Position controls derived from motion
+            SpatialPositionControls(
+                position: $spatialPosition,
+                motionManager: motionManager
+            )
+        }
+        .audioUIGroupBox()
+        .onAppear {
+            motionManager.startMotionUpdates()
+        }
+    }
+}
+
+struct MotionRecordingStudio: View {
+    @State private var isRecording = false
+    @State private var recordedMotions: [MotionRecording] = []
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("MOTION RECORDING")
+                .audioUILabel(.section)
+            
+            // Recording controls and playback
+            MotionRecordingControls(
+                isRecording: $isRecording,
+                recordings: $recordedMotions
+            )
+            
+            // Recording timeline
+            MotionTimeline(recordings: recordedMotions)
+                .frame(height: 150)
+        }
+        .audioUIGroupBox()
+    }
+}
+
+struct SpatialPosition {
+    var x: Double = 0.0
+    var y: Double = 0.0
+    var z: Double = 0.0
+}
+
+struct MotionRecording: Identifiable {
+    let id = UUID()
+    let name: String
+    let duration: TimeInterval
+    let motionData: [MotionFrame]
+}
+
+struct MotionFrame {
+    let timestamp: TimeInterval
+    let attitude: Attitude
+    let acceleration: Acceleration
+}
+```
+
+## Conclusion
+
+You've created a comprehensive motion-controlled audio interface featuring:
+
+- **Motion-responsive synthesizer** with gyroscope and accelerometer input
+- **Gesture-based effects processing** with multi-touch support
+- **3D spatial audio control** using device orientation
+- **Haptic feedback system** synchronized with motion and audio
+- **Motion recording and playback** for automation and composition
+- **Calibration and sensitivity controls** for personalized experience
+
+## Next Steps
+
+To enhance the motion control system:
+
+1. **Audio Engine Integration**: Connect to real audio synthesis and processing
+2. **Machine Learning**: Add gesture recognition using Core ML
+3. **Bluetooth Sensors**: Support external motion sensors
+4. **VR/AR Integration**: Extend to spatial computing platforms
+5. **Cloud Synchronization**: Share motion recordings across devices
+6. **Advanced Gestures**: Implement complex multi-finger and 3D gestures
+
+This motion control framework opens up new possibilities for expressive audio interfaces that respond naturally to human movement and gesture!
