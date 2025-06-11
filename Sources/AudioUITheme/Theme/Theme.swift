@@ -42,6 +42,50 @@ public extension Theme {
     /// A cosmic deep space theme with purple and blue
     static let cosmic = Theme(look: CosmicLook(), feel: NeumorphicFeel())
     
+    // MARK: - New Vibrant Themes
+    
+    /// A desert theme with spice reds and sandy oranges (Dune inspired)
+    static let duneDesert = Theme(look: DuneDesertLook(), feel: NeumorphicFeel())
+    
+    /// An arctic theme with ice blues and crystalline whites
+    static let arcticIce = Theme(look: ArcticIceLook(), feel: MinimalFeel())
+    
+    /// A volcanic theme with molten reds and lava oranges
+    static let magmaFire = Theme(look: MagmaFireLook(), feel: NeumorphicFeel())
+    
+    /// A gentle theme with soft pinks and rose tones
+    static let softPink = Theme(look: SoftPinkLook(), feel: MinimalFeel())
+    
+    /// A natural theme with sage greens and earthy tones
+    static let sageGreen = Theme(look: SageGreenLook(), feel: MinimalFeel())
+    
+    /// A sophisticated theme with deep navy and sapphire blues
+    static let midnightBlue = Theme(look: MidnightBlueLook(), feel: NeumorphicFeel())
+    
+    /// A luxurious theme with warm golds and amber tones
+    static let goldenHour = Theme(look: GoldenHourLook(), feel: MinimalFeel())
+    
+    /// An elegant theme with rich violets and royal purples
+    static let royalPurple = Theme(look: RoyalPurpleLook(), feel: NeumorphicFeel())
+    
+    /// A mystical theme with aurora borealis colors
+    static let aurora = Theme(look: AuroraLook(), feel: NeumorphicFeel())
+    
+    /// A delicate theme with sakura pink and cherry blossom tones
+    static let cherryBlossom = Theme(look: CherryBlossomLook(), feel: MinimalFeel())
+    
+    /// A dreamy theme with soft clouds and pastel sky colors
+    static let cloudDream = Theme(look: CloudDreamLook(), feel: MinimalFeel())
+    
+    /// A profound theme with deep ocean blues and aquatic tones
+    static let deepOcean = Theme(look: DeepOceanLook(), feel: NeumorphicFeel())
+    
+    /// An intense theme with electric neon cyberpunk colors
+    static let neonCyberpunk = Theme(look: NeonCyberpunkLook(), feel: NeumorphicFeel())
+    
+    /// A warm theme with peachy cream and soft coral tones
+    static let peachyCream = Theme(look: PeachyCreamLook(), feel: MinimalFeel())
+    
     // MARK: - Simple Themes (2-3 colors only)
     
     /// A clean monochromatic theme using only light gray and dark gray
@@ -71,6 +115,20 @@ public extension Theme {
         .retro,
         .monochrome,
         .cosmic,
+        .duneDesert,
+        .arcticIce,
+        .magmaFire,
+        .softPink,
+        .sageGreen,
+        .midnightBlue,
+        .goldenHour,
+        .royalPurple,
+        .aurora,
+        .cherryBlossom,
+        .cloudDream,
+        .deepOcean,
+        .neonCyberpunk,
+        .peachyCream,
         .simpleMono,
         .simpleBlueOrange,
         .simpleGreenPurple

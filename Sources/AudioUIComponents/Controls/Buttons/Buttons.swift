@@ -1,7 +1,7 @@
 // Buttons.swift
 // AudioUI Package - Button Components
 //
-// Production-ready button components with neumorphic and minimal design styles
+// Production-ready button components with neumorphic design styles
 
 import SwiftUI
 
@@ -11,18 +11,16 @@ import SwiftUI
 // Individual imports can be done as needed:
 //
 // Button Styles Available:
-// - InsetCircularButton: Circular neumorphic button with icon support
-// - InsetMomentaryButton: Momentary press button with tactile feedback  
-// - InsetToggleButton: Toggle state button with visual feedback
+// - ButtonMinimal1: Clean minimal button with sharp geometry
+// - ButtonDotted1: Dot matrix button with pattern effects  
+// - ToggleButtonNeumorphic1: Neumorphic toggle button with visual feedback
 
 // Components are directly available when importing AudioUIComponents
-// Use: InsetCircularButton, InsetMomentaryButton, InsetToggleButton
+// Use: ButtonMinimal1, ButtonDotted1, ToggleButtonNeumorphic1
 
 // MARK: - Button Collections
 
 /// Collection of all available button styles
 public enum AudioUIButtonStyle {
-    case circular
-    case momentary  
-    case toggle
+    case neumorphic
 } 

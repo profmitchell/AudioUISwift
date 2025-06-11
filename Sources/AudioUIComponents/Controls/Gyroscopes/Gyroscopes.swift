@@ -7,31 +7,27 @@ import SwiftUI
 
 // MARK: - Gyroscope Component Exports
 
-// Minimal Style Gyroscopes
+// Gyroscope Styles Available:
 // - GyroMinimal: Clean motion display with orbit indicators
-// - GyroMinimal1: Crosshair style with simple visualization
-// - GyroMinimal2: Ring-based orientation display
+// - GyroDotted1: Dot matrix motion visualization with pattern effects
+// - GyroNeumorphic1: 3D neumorphic sphere with realistic depth visualization
 
-// Neumorphic Style Gyroscopes  
-// - GyroNeumorphic4: 3D sphere visualization with data cards
-
-// Advanced Gyroscope Components
-// - OrientationDiagram: Enhanced 3D gimbal visualization (from GyroscopeView.swift)
+// Components are directly available when importing AudioUIComponents
+// Use: GyroMinimal, GyroDotted1, GyroNeumorphic1
 
 // MARK: - Gyroscope Collections
 
 /// Collection of all available gyroscope styles
 public enum AudioUIGyroscopeStyle {
     case minimal
-    case minimal1
-    case minimal2
-    case neumorphic4
-    case orientationDiagram
+    case dotted
+    case neumorphic
 }
 
 /// Gyroscope design philosophy
 public enum AudioUIGyroscopeDesign {
     case minimal
+    case dotted
     case neumorphic
     case advanced
 }

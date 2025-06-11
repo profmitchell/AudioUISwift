@@ -33,10 +33,8 @@ import AudioUITheme
         ControlGroup(title: title) {
             HStack(spacing: 12) {
                 ForEach(Array(faders.enumerated()), id: \.offset) { index, config in
-                    MinimalFader1(
-                        value: config.binding,
-                        label: config.label
-                        
+                    SliderMinimal1(
+                        value: config.binding
                     )
                 }
             }
